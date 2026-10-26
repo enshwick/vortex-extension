@@ -16,6 +16,7 @@ with a meaning of its own is a nominal type from `src/model/`.
 | `src/game/`      | the game: how Vortex finds it and where mods go            |
 | `src/layout/`    | the layout of an Enshwick archive and where its files go   |
 | `src/installer/` | the installers Vortex runs on Enshwick archives            |
+| `src/health/`    | the check that enabled mods have the loader with them      |
 | `src/model/`     | the nominal types                                          |
 | `tools/build.ts` | bundles `src/index.ts` and writes `info.json` into `dist/` |
 
