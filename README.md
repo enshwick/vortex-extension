@@ -44,3 +44,7 @@ bun run build
 `bun run build` writes the extension to `dist/`: `index.js` and `info.json`.
 To try it, copy that folder into Vortex's `plugins` folder
 (`%APPDATA%\Vortex\plugins\enshwick`) and restart Vortex.
+
+Each change merged to `main` also builds the extension in CI: the run's
+artifact `enshwick-vortex-extension` is a zip of the same folder, which
+Vortex installs by dropping it on the Extensions page.

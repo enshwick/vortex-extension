@@ -1,0 +1,33 @@
+# The merge gate on the organization runners through the shared workflow:
+# `bun run check` on every pull request. On main, and by hand, the extension
+# is built too and kept as the run's artifact `enshwick-vortex-extension`,
+# the folder Vortex installs.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - tools/**
+      - package.json
+      - bun.lock
+      - tsconfig*.json
+      - .github/workflows/ci.yml
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bun:
+    # main: the organization runners run only workflows from main.
+    uses: enshwick/.github/.github/workflows/bun-ci.yml@main # zizmor: ignore[unpinned-uses]
+    permissions:
+      contents: read
+    with:
+      artifact: ${{ github.event_name != 'pull_request' && 'enshwick-vortex-extension' || '' }}
