@@ -19,6 +19,17 @@ An archive packed inside one folder installs the same. Each archive's
 loader, `mods/<package>.LICENSE` for a mod. Archives of any other layout go
 to Vortex's own installers.
 
+## Load order and conflicts
+
+Vortex shows no load order for Enshrouded: the loader orders mods itself,
+from the dependencies each mod declares. Two archives that hold the same
+file, such as a mod in `enshwick.zip` and the same mod from its own release,
+are a file conflict, which Vortex asks you to settle once. When mods from
+Enshwick archives are enabled without the loader, Vortex's health check
+warns that the game will not load them.
+
+The extension needs Vortex 2.2 or newer.
+
 ## Build
 
 With [Bun](https://bun.sh) installed:
