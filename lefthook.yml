@@ -1,0 +1,47 @@
+# Nothing that compiles or bundles: the hooks stay under ten seconds. The
+# type check, the tests and the build run in `bun run check` and in CI.
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{ts,json,jsonc,md,yml,yaml}'
+      run: bunx oxfmt --check {staged_files}
+    lint:
+      glob: '*.ts'
+      run: bunx oxlint {staged_files}
+    markdown:
+      glob: '*.md'
+      run: bunx markdownlint-cli2 --no-globs {staged_files}
+    typos:
+      run: typos --force-exclude {staged_files}
+
+# committed checks the header against committed.toml. Messages git writes
+# itself (merges, reverts, fixups) pass as they are. A subject starts in
+# lower case, and angle brackets would read as HTML in the release notes.
+commit-msg:
+  commands:
+    conventional:
+      run: >-
+        head -n1 {1} | grep -qE '^(Merge |Revert "|fixup! |squash! |amend! )' ||
+        { committed --commit-file {1} &&
+        ! head -n1 {1} | grep -E ': [A-Z]|[<>]'; }
+
+pre-push:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{ts,json,jsonc,md,yml,yaml}'
+      run: bunx oxfmt --check {push_files}
+    lint:
+      glob: '*.ts'
+      run: bunx oxlint {push_files}
+    markdown:
+      glob: '*.md'
+      run: bunx markdownlint-cli2 --no-globs {push_files}
+    typos:
+      run: typos --force-exclude {push_files}
+    commits:
+      run: >-
+        ! git rev-parse -q --verify origin/main > /dev/null ||
+        { committed origin/main..HEAD &&
+        ! git log --no-merges --format=%s origin/main..HEAD | grep -E ': [A-Z]|[<>]'; }
