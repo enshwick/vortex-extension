@@ -1,0 +1,34 @@
+{
+  "name": "@enshwick/vortex-extension",
+  "version": "0.0.0-dev",
+  "private": true,
+  "description": "The Vortex game extension for Enshrouded with the Enshwick loader.",
+  "license": "MIT",
+  "author": "Kyrylo Lytvynov",
+  "repository": "github:enshwick/vortex-extension",
+  "type": "module",
+  "scripts": {
+    "build": "bun tools/build.ts",
+    "check": "oxfmt --check && oxlint --type-aware && tsc --noEmit && bun --bun vitest run",
+    "fmt": "oxfmt",
+    "lint": "oxlint --type-aware",
+    "prepare": "lefthook install",
+    "test": "bun --bun vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@horizon-republic/nominal-types": "3.1.0"
+  },
+  "devDependencies": {
+    "@nexusmods/vortex-api": "2.8.1",
+    "@types/bun": "1.4.2",
+    "fast-check": "4.10.2",
+    "lefthook": "2.2.2",
+    "markdownlint-cli2": "0.24.0",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
+    "oxlint-tsgolint": "7.0.2004",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}
