@@ -43,6 +43,11 @@
     "no-restricted-globals": ["error", "Boolean"]
   },
   "overrides": [
+    // A test file is one describe block with a case per behaviour; its length is the list of cases.
+    {
+      "files": ["**/__tests__/**"],
+      "rules": { "max-lines-per-function": "off" }
+    },
     {
       "files": ["vitest.config.ts"],
       "rules": {

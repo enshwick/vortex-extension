@@ -1,9 +1,11 @@
 import type { types } from '@nexusmods/vortex-api';
 
 import { EnshroudedGame } from './game/enshrouded.game';
+import { PackageInstaller } from './installer/package.installer';
+import { PackageKind } from './model/package-kind';
 
 /**
- * Registers Enshrouded with Vortex.
+ * Registers Enshrouded with Vortex and the installers of Enshwick archives.
  *
  * @returns `true`, which tells Vortex the extension loaded.
  */
@@ -11,6 +13,10 @@ import { EnshroudedGame } from './game/enshrouded.game';
 // oxlint-disable-next-line import/no-default-export
 export default function init(context: types.IExtensionContext): boolean {
   context.registerGame(new EnshroudedGame().describe());
+
+  for (const kind of [PackageKind.Loader, PackageKind.Mods] as const) {
+    new PackageInstaller(kind).register(context);
+  }
 
   return true;
 }
