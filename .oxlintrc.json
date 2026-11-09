@@ -116,8 +116,9 @@
   },
   "overrides": [
     {
-      "files": ["src/index.ts"],
-      // Vortex loads an extension through the default export of its index.js.
+      "files": ["src/index.ts", "vitest.config.ts"],
+      // Vortex loads an extension through the default export of its index.js, and Vitest reads
+      // its configuration from one.
       "rules": { "import/no-default-export": "off" }
     },
     {
