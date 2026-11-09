@@ -18,6 +18,8 @@ export class LoaderCheck {
   /** The page that tells the player how to install Enshwick. */
   public static readonly installGuide = 'https://enshwick.com/guides/install/';
 
+  private static readonly warningStatus = 'warning';
+  private static readonly passedStatus = 'passed';
   private static readonly name = 'Enshwick loader';
   private static readonly description =
     'Enshwick mods run only when the Enshwick loader is in the game folder.';
@@ -77,7 +79,7 @@ export class LoaderCheck {
 
     return {
       checkId: LoaderCheck.id,
-      status: missing ? 'warning' : 'passed',
+      status: missing ? LoaderCheck.warningStatus : LoaderCheck.passedStatus,
       severity: types.HealthCheckSeverity.Warning,
       message: missing ? LoaderCheck.missing : LoaderCheck.passed,
       ...(missing ? { details: LoaderCheck.details, fixAvailable: true } : {}),

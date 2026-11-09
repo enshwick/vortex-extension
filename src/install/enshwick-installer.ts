@@ -27,6 +27,11 @@ export class EnshwickInstaller {
   private static readonly install = 'Install';
   private static readonly canceled = 'The Enshwick install was canceled.';
   private static readonly noPackage = 'The archive holds no Enshwick package.';
+  private static readonly question = 'question';
+  private static readonly setModType = 'setmodtype';
+  private static readonly copy = 'copy';
+  private static readonly userCanceled = 'user-canceled';
+  private static readonly dataInvalid = 'data-invalid';
 
   public constructor(private readonly api: types.IExtensionApi) {}
 
@@ -53,7 +58,7 @@ export class EnshwickInstaller {
     const plan = PackagePlan.of(files);
 
     if (plan === undefined) {
-      throw new VortexError(EnshwickInstaller.noPackage, { kind: 'data-invalid' });
+      throw new VortexError(EnshwickInstaller.noPackage, { kind: EnshwickInstaller.dataInvalid });
     }
 
     if (plan.kind === PackageKind.Loader && unattended !== true) {
@@ -62,9 +67,9 @@ export class EnshwickInstaller {
 
     return {
       instructions: [
-        { type: 'setmodtype', value: plan.kind },
+        { type: EnshwickInstaller.setModType, value: plan.kind },
         ...plan.copies.map((copy): types.IInstruction => ({
-          type: 'copy',
+          type: EnshwickInstaller.copy,
           source: copy.source,
           destination: copy.destination,
         })),
@@ -75,14 +80,17 @@ export class EnshwickInstaller {
   /** Asks the player to confirm the loader's DLL; throws a `user-canceled` error unless they do. */
   private async confirm(): Promise<void> {
     const result = await this.api.showDialog?.(
-      'question',
+      EnshwickInstaller.question,
       EnshwickInstaller.confirmTitle,
       { text: EnshwickInstaller.confirmText },
       [{ label: EnshwickInstaller.cancel }, { label: EnshwickInstaller.install }],
     );
 
     if (result?.action !== EnshwickInstaller.install) {
-      throw new VortexError(EnshwickInstaller.canceled, { kind: 'user-canceled', skipped: false });
+      throw new VortexError(EnshwickInstaller.canceled, {
+        kind: EnshwickInstaller.userCanceled,
+        skipped: false,
+      });
     }
   }
 }
