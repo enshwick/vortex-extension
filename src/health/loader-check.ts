@@ -20,7 +20,7 @@ export class LoaderCheck {
 
   private static readonly warningStatus = 'warning';
   private static readonly passedStatus = 'passed';
-  private static readonly name = 'Enshwick loader';
+  private static readonly title = 'Enshwick loader';
   private static readonly description =
     'Enshwick mods run only when the Enshwick loader is in the game folder.';
   private static readonly passed = 'The Enshwick loader is installed, or no Enshwick mod is on.';
@@ -42,15 +42,19 @@ export class LoaderCheck {
     return enabledOf(PackageKind.Mod) && !enabledOf(PackageKind.Loader) && !loaderInGameFolder;
   }
 
-  /** The check as Vortex registers it, run when the game, the profile or its mods change. */
+  /**
+   * The check as Vortex registers it, run at start and when the game, the profile or its mods
+   * change. Vortex has no trigger for a deploy or a purge.
+   */
   public static healthCheck(): types.IHealthCheck {
     return {
       id: LoaderCheck.id,
-      name: LoaderCheck.name,
+      name: LoaderCheck.title,
       description: LoaderCheck.description,
       category: types.HealthCheckCategory.Requirements,
       severity: types.HealthCheckSeverity.Warning,
       triggers: [
+        types.HealthCheckTrigger.Startup,
         types.HealthCheckTrigger.GameChanged,
         types.HealthCheckTrigger.ProfileChanged,
         types.HealthCheckTrigger.ModsChanged,
@@ -70,7 +74,8 @@ export class LoaderCheck {
     const mods = state.persistent.mods[GameFolder.gameId] ?? {};
     const gamePath = GameFolder.pathIn(state, GameFolder.gameId);
     const missing =
-      profile?.gameId === GameFolder.gameId &&
+      profile !== undefined &&
+      GameFolder.isGame(profile.gameId) &&
       LoaderCheck.isMissing(
         mods,
         (modId) => profile.modState[modId]?.enabled === true,
