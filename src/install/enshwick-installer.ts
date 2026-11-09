@@ -33,6 +33,10 @@ export class EnshwickInstaller {
   private static readonly noPackage = 'The archive holds no Enshwick package.';
   private static readonly noPackId =
     'cannot be read or declares no mod id (`id = "<author>.<name>"`), so Enshwick would not run this pack.';
+  private static readonly sharedFolder =
+    'Two mod folders of this archive would install to one folder of mods/, so one would ' +
+    'overwrite the other. Its packs declare: ';
+  private static readonly listSeparator = ', ';
   private static readonly question = 'question';
   private static readonly setModType = 'setmodtype';
   private static readonly copy = 'copy';
@@ -42,14 +46,12 @@ export class EnshwickInstaller {
   public constructor(private readonly api: types.IExtensionApi) {}
 
   /**
-   * Whether an archive for `gameId` holds an Enshwick package. A pack folder outside `mods/`
-   * counts by its `pack.toml` alone: its id is read only when it installs.
+   * Whether an archive for `gameId` holds an Enshwick package. A pack folder counts by its
+   * `pack.toml` alone: its id is read only when it installs.
    */
   public static supports(files: readonly string[], gameId: string): types.ISupportedResult {
     return {
-      supported:
-        GameFolder.isGame(gameId) &&
-        (PackagePlan.of(files) !== undefined || PackagePlan.manifests(files).length > 0),
+      supported: GameFolder.isGame(gameId) && PackagePlan.fits(files),
       requiredFiles: [],
     };
   }
@@ -60,18 +62,23 @@ export class EnshwickInstaller {
    * one, such as a collection's, does not.
    *
    * @throws VortexError of kind `user-canceled` when the player cancels the loader's install,
-   *   and of kind `data-invalid` when the archive holds no Enshwick package or a pack's
-   *   `pack.toml` declares no usable mod id; the message then names that file.
+   *   and of kind `data-invalid` when the archive holds no Enshwick package, a pack's
+   *   `pack.toml` declares no usable mod id, or two mod folders would install to one; the
+   *   message then names the manifests.
    */
   public async instructions(
     files: readonly string[],
     extracted: string,
     unattended: boolean | undefined,
   ): Promise<types.IInstallResult> {
-    const plan = PackagePlan.of(files, await EnshwickInstaller.packs(files, extracted));
+    const packs = await EnshwickInstaller.packs(files, extracted);
+    const plan = PackagePlan.of(files, packs);
 
     if (plan === undefined) {
-      throw new VortexError(EnshwickInstaller.noPackage, { kind: EnshwickInstaller.dataInvalid });
+      throw new VortexError(
+        PackagePlan.fits(files) ? EnshwickInstaller.sharing(packs) : EnshwickInstaller.noPackage,
+        { kind: EnshwickInstaller.dataInvalid },
+      );
     }
 
     if (plan.kind === PackageKind.Loader && unattended !== true) {
@@ -90,7 +97,16 @@ export class EnshwickInstaller {
     };
   }
 
-  /** The pack folders of an archive outside `mods/`, each with the id read from its manifest. */
+  /** The message for an archive that fits but whose `packs` would share a folder of `mods/`. */
+  private static sharing(packs: readonly DeclaredPack[]): string {
+    const declared = packs
+      .map((pack) => `${pack.manifest} (${pack.id})`)
+      .join(EnshwickInstaller.listSeparator);
+
+    return `${EnshwickInstaller.sharedFolder}${declared}`;
+  }
+
+  /** The pack folders of an archive, each with the id read from its manifest. */
   private static packs(
     files: readonly string[],
     extracted: string,

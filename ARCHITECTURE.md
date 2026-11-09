@@ -11,15 +11,24 @@ extension adds to it under the game id `enshrouded`.
 | ------------ | ----------------------------------- | -------------------------------------------------------------------------------- |
 | entry        | `src/index.ts`                      | registers everything with Vortex; the only file that calls a `register` function |
 | names        | `src/game-folder.ts`                | the file and folder names of the game folder, and where Vortex found it          |
-| plan         | `src/install/package-plan.ts`       | reads an archive's file list and decides what goes where; no Vortex import       |
+| entries      | `src/install/archive-entries.ts`    | splits an archive's file list into checked names and finds its mod folders       |
+| plan         | `src/install/package-plan.ts`       | decides what goes where from the file list and the packs' ids; no Vortex import  |
+| manifest     | `src/install/pack-manifest.ts`      | reads a pack's id from its `pack.toml`; the only installer part that reads files |
+| game path    | `src/install/game-path.ts`          | a destination that cannot leave the game folder                                  |
 | installer    | `src/install/enshwick-installer.ts` | turns a plan into Vortex instructions and asks to confirm `powrprof.dll`         |
 | mod types    | `src/install/mod-type.ts`           | the name and priority of each Enshwick mod type                                  |
 | loader check | `src/health/loader-check.ts`        | warns when Enshwick mods are on without the loader                               |
 
 ## Rules
 
-- The plan decides from file names alone and imports nothing from Vortex, so its
-  tests run without it. An archive with an unsafe name (`..`, a drive letter, a
+- The plan decides from file names and the ids of the archive's packs, and
+  imports nothing from Vortex, so its tests run without it. The loader runs a
+  pack only from the folder of `mods/` named by the id in its `pack.toml`, so
+  the installer reads that id from the extracted archive and the plan names the
+  folder by it, wherever the archive holds the pack. A manifest with no valid
+  id, or two mod folders that would install to one, stops the install with an
+  error that names the manifests.
+- An archive with an unsafe name (`..`, a drive letter, a
   character Windows refuses, a device name such as `NUL`, a name ending in a
   space or a period) gets no plan, so no part of it is installed.
 - Nothing but `powrprof.dll` goes to the top of the game folder; every other

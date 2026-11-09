@@ -33,9 +33,14 @@ export class GameFolder {
     return gameId === GameFolder.gameId;
   }
 
+  /** A name folded so that two names Windows takes for one file share a key. */
+  public static key(this: void, name: string | undefined): string | undefined {
+    return name?.toLowerCase();
+  }
+
   /** Whether two names are the same, as Windows compares file names. */
   public static same(name: string | undefined, other: string | undefined): boolean {
-    return name !== undefined && name.toLowerCase() === other?.toLowerCase();
+    return name !== undefined && GameFolder.key(name) === GameFolder.key(other);
   }
 
   /** Whether a file is a DLL by its name. */

@@ -16,12 +16,20 @@ describe('PackManifest', () => {
     );
   });
 
-  it('reads no id from any text without throwing', () => {
+  it('reads no id from any text after a top-level id that is no string, without throwing', () => {
     assert(
       property(string(), (text) => {
-        expect(PackManifest.idOf(`${text}\nid = 1`)).toBeUndefined();
+        expect(PackManifest.idOf(`id = 1\n${text}`)).toBeUndefined();
       }),
     );
+  });
+
+  it('reads no id below a table header as the pack’s own', () => {
+    expect(PackManifest.idOf('[t]\nid = "you.greeter"')).toBeUndefined();
+  });
+
+  it('reads no id that could name the loader’s own folder', () => {
+    expect(PackManifest.idOf('id = "enshwick"')).toBeUndefined();
   });
 
   it('reads no id Windows refuses as a folder name', () => {
