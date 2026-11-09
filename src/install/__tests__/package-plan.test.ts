@@ -3,14 +3,18 @@ import { join, sep } from 'node:path';
 import { array, assert, constantFrom, oneof, property, uniqueArray } from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
+import { ModId } from '../mod-id';
 import { PackageKind } from '../package-kind';
 import { PackagePlan } from '../package-plan';
+import type { DeclaredPack } from '../package-plan';
 
 const copiesOf = (files: readonly string[]): readonly PackageCopyView[] =>
   PackagePlan.of(files)?.copies ?? [];
 
 const destinations = (plan: PackagePlan | undefined): Record<string, string> =>
-  Object.fromEntries((plan?.copies ?? []).map((copy) => [copy.source, copy.destination]));
+  Object.fromEntries((plan?.copies ?? []).map((copy) => [copy.source, copy.destination.value]));
+
+const pack = (manifest: string, id: string): DeclaredPack => ({ manifest, id: new ModId(id) });
 
 type PackageCopyView = PackagePlan['copies'][number];
 
@@ -66,11 +70,14 @@ describe('PackagePlan', () => {
   });
 
   it('puts an archive of only a Luau mod folder into mods with every file below it', () => {
-    const plan = PackagePlan.of([
-      join('you.greeter', 'pack.toml'),
-      join('you.greeter', 'main.luau'),
-      join('you.greeter', 'lib', 'greet.luau'),
-    ]);
+    const plan = PackagePlan.of(
+      [
+        join('you.greeter', 'pack.toml'),
+        join('you.greeter', 'main.luau'),
+        join('you.greeter', 'lib', 'greet.luau'),
+      ],
+      [pack(join('you.greeter', 'pack.toml'), 'you.greeter')],
+    );
 
     expect(plan?.kind).toBe(PackageKind.Mod);
     expect(destinations(plan)).toEqual({
@@ -115,11 +122,55 @@ describe('PackagePlan', () => {
     ]);
   });
 
-  it('reads a Luau mod folder that holds a folder named mods as a mod folder', () => {
-    const plan = PackagePlan.of([
-      join('you.greeter', 'pack.toml'),
-      join('you.greeter', 'mods', 'data', 'x.luau'),
+  it('names a pack folder by the id its manifest declares, not by a versioned wrapper folder', () => {
+    const files = [join('greeter-1.0', 'pack.toml'), join('greeter-1.0', 'main.luau')];
+    const plan = PackagePlan.of(files, [pack(join('greeter-1.0', 'pack.toml'), 'you.greeter')]);
+
+    expect(plan?.kind).toBe(PackageKind.Mod);
+    expect(destinations(plan)).toEqual({
+      [join('greeter-1.0', 'pack.toml')]: join('mods', 'you.greeter', 'pack.toml'),
+      [join('greeter-1.0', 'main.luau')]: join('mods', 'you.greeter', 'main.luau'),
+    });
+  });
+
+  it('asks for the manifest of each pack folder outside mods and of none inside it', () => {
+    expect(
+      PackagePlan.manifests([
+        join('Greeter', 'greeter-1.0', 'pack.toml'),
+        join('Greeter', 'greeter-1.0', 'vendor', 'pack.toml'),
+        join('Greeter', 'you.one', 'one.dll'),
+      ]),
+    ).toEqual([join('Greeter', 'greeter-1.0', 'pack.toml')]);
+    expect(PackagePlan.manifests([join('mods', 'you.greeter', 'pack.toml')])).toEqual([]);
+    expect(PackagePlan.manifests([join('you.one', 'one.dll')])).toEqual([]);
+  });
+
+  it('declines a pack folder whose id nobody read, rather than guess it from the folder', () => {
+    expect(PackagePlan.of([join('you.greeter', 'pack.toml')])).toBeUndefined();
+  });
+
+  it('declines two pack folders that declare one id, since one would overwrite the other', () => {
+    const files = [join('greeter-1.0', 'pack.toml'), join('greeter-1.1', 'pack.toml')];
+    const packs = files.map((manifest) => pack(manifest, 'you.greeter'));
+
+    expect(PackagePlan.of(files, packs)).toBeUndefined();
+  });
+
+  it('keeps the name of a folder that holds a DLL beside its pack manifest', () => {
+    const files = [join('you.one', 'pack.toml'), join('you.one', 'one.dll')];
+    const plan = PackagePlan.of(files, [pack(join('you.one', 'pack.toml'), 'you.other')]);
+
+    expect(Object.values(destinations(plan))).toEqual([
+      join('mods', 'you.one', 'pack.toml'),
+      join('mods', 'you.one', 'one.dll'),
     ]);
+  });
+
+  it('reads a Luau mod folder that holds a folder named mods as a mod folder', () => {
+    const plan = PackagePlan.of(
+      [join('you.greeter', 'pack.toml'), join('you.greeter', 'mods', 'data', 'x.luau')],
+      [pack(join('you.greeter', 'pack.toml'), 'you.greeter')],
+    );
 
     expect(Object.values(destinations(plan))).toEqual([
       join('mods', 'you.greeter', 'pack.toml'),
@@ -188,7 +239,7 @@ describe('PackagePlan', () => {
         const copies = copiesOf(files);
         const sources = new Set(copies.map((copy) => copy.source));
         const elsewhere = copies
-          .map((copy) => copy.destination)
+          .map((copy) => copy.destination.value)
           .filter((destination) => !destination.startsWith(`mods${sep}`))
           .filter((destination) => destination !== 'powrprof.dll');
 
