@@ -1,0 +1,143 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": { "typeAware": true },
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "jsdoc", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "error"
+  },
+  "rules": {
+    // Vortex's types and nominal instances are not deeply read-only; the rule would ask for
+    // wrappers that add nothing.
+    "typescript/prefer-readonly-parameter-types": "off",
+    // Nominal instances go into templates as they are: their text form is their value.
+    "typescript/restrict-template-expressions": "off",
+    "typescript/no-extraneous-class": [
+      "error",
+      { "allowWithDecorator": true, "allowEmpty": true, "allowStaticOnly": true }
+    ],
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/explicit-function-return-type": [
+      "error",
+      {
+        "allowExpressions": true,
+        "allowHigherOrderFunctions": true,
+        "allowTypedFunctionExpressions": true
+      }
+    ],
+    "typescript/explicit-module-boundary-types": "error",
+    "typescript/consistent-type-imports": ["error", { "fixStyle": "separate-type-imports" }],
+    "typescript/consistent-type-exports": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/require-await": "error",
+    "typescript/return-await": ["error", "in-try-catch"],
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/prefer-readonly": "error",
+    "typescript/prefer-nullish-coalescing": "error",
+    "typescript/strict-boolean-expressions": ["error", { "allowNullableObject": false }],
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+    "typescript/no-deprecated": "error",
+    "typescript/no-namespace": "error",
+    "typescript/array-type": ["error", { "default": "array-simple", "readonly": "array-simple" }],
+    "typescript/consistent-indexed-object-style": ["error", "record"],
+    "typescript/explicit-member-accessibility": "error",
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "Boolean",
+        "message": "Nominal values are objects and always truthy: compare `.value`, or test `!== undefined`."
+      }
+    ],
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-module": "error",
+    "unicorn/error-message": "error",
+    "unicorn/throw-new-error": "error",
+    "unicorn/no-typeof-undefined": "error",
+    "unicorn/no-useless-promise-resolve-reject": "error",
+    "unicorn/prefer-export-from": "error",
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "import/no-default-export": "error",
+    "import/no-cycle": "error",
+    "import/no-self-import": "error",
+    "import/no-duplicates": "error",
+    "import/max-dependencies": ["error", { "max": 15 }],
+    "promise/prefer-await-to-then": "error",
+    "jsdoc/check-tag-names": ["error", { "definedTags": ["remarks", "typeParam"] }],
+    "jsdoc/empty-tags": "error",
+    "jsdoc/no-defaults": "error",
+    // TypeScript states the types, so a tag adds only what the type cannot say.
+    "jsdoc/require-returns": "off",
+    "jsdoc/require-returns-type": "off",
+    "jsdoc/require-param": "off",
+    "jsdoc/require-param-type": "off",
+    "jsdoc/require-throws-type": "off",
+    "no-console": "error",
+    "no-alert": "error",
+    "no-param-reassign": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "prefer-template": "error",
+    "eqeqeq": "error",
+    "max-depth": ["error", 4],
+    "eslint/no-underscore-dangle": "error",
+    "func-style": ["error", "expression", { "allowArrowFunctions": true }],
+    "prefer-arrow-callback": "error",
+    "max-classes-per-file": ["error", { "max": 1, "ignoreExpressions": true }],
+    "public-docs/require-jsdoc": [
+      "error",
+      {
+        "publicOnly": true,
+        "require": {
+          "ArrowFunctionExpression": true,
+          "ClassDeclaration": true,
+          "FunctionDeclaration": true,
+          "MethodDefinition": false
+        },
+        "contexts": ["TSInterfaceDeclaration", "TSTypeAliasDeclaration", "TSEnumDeclaration"]
+      }
+    ],
+    "stylistic/padding-line-between-statements": [
+      "error",
+      { "blankLine": "always", "prev": "*", "next": "return" },
+      { "blankLine": "always", "prev": ["const", "let"], "next": "*" },
+      { "blankLine": "any", "prev": ["const", "let"], "next": ["const", "let"] },
+      { "blankLine": "always", "prev": "*", "next": ["block-like", "throw", "try"] },
+      { "blankLine": "always", "prev": "block-like", "next": "*" },
+      { "blankLine": "always", "prev": "import", "next": "*" },
+      { "blankLine": "any", "prev": "import", "next": "import" },
+      { "blankLine": "always", "prev": "*", "next": ["export"] },
+      { "blankLine": "any", "prev": "export", "next": "export" }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/index.ts"],
+      // Vortex loads an extension through the default export of its index.js.
+      "rules": { "import/no-default-export": "off" }
+    },
+    {
+      "files": ["tools/**"],
+      // The build script reports to the person who runs it.
+      "rules": { "no-console": "off" }
+    },
+    {
+      "files": ["**/__tests__/**"],
+      // A describe block holds every case of one unit; its length follows the cases.
+      "rules": {
+        "max-lines-per-function": "off",
+        "max-classes-per-file": "off",
+        "public-docs/require-jsdoc": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist/**"],
+  "jsPlugins": [
+    { "name": "public-docs", "specifier": "eslint-plugin-jsdoc" },
+    { "name": "stylistic", "specifier": "@stylistic/eslint-plugin" }
+  ]
+}

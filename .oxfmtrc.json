@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "singleQuote": true,
+  "proseWrap": "preserve",
+  "sortImports": {
+    "customGroups": [
+      { "groupName": "ours", "elementNamePattern": ["@enshwick/**", "@horizon-republic/**"] }
+    ],
+    "groups": ["builtin", "external", "ours", ["parent", "sibling", "index"], "unknown"]
+  },
+  "ignorePatterns": ["**/*.md", "dist/**", "bun.lock"]
+}

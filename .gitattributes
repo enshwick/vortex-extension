@@ -1,0 +1,2 @@
+# LF everywhere, so a checkout on Windows produces the same bytes as anywhere else.
+* text=auto eol=lf
