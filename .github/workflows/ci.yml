@@ -18,7 +18,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: ci-${{ github.head_ref || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.draft }} # a draft's late run never cancels a ready one
   # A run on main finishes, so every merge is checked and packaged.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
