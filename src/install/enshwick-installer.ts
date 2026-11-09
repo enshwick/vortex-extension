@@ -38,7 +38,7 @@ export class EnshwickInstaller {
   /** Whether an archive for `gameId` holds an Enshwick package. */
   public static supports(files: readonly string[], gameId: string): types.ISupportedResult {
     return {
-      supported: gameId === GameFolder.gameId && PackagePlan.of(files) !== undefined,
+      supported: GameFolder.isGame(gameId) && PackagePlan.of(files) !== undefined,
       requiredFiles: [],
     };
   }

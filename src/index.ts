@@ -6,22 +6,11 @@ import { n } from '@horizon-republic/nominal-types';
 import { GameFolder } from './game-folder';
 import { LoaderCheck } from './health/loader-check';
 import { EnshwickInstaller } from './install/enshwick-installer';
+import { ModType } from './install/mod-type';
 import { PackageKind } from './install/package-kind';
 
 // Vortex's window may forbid `new Function`, which the type checks would otherwise compile to.
 n.configure({ codegen: 'off' });
-
-/** Lower is tried first when Vortex picks a type for a mod by its files. */
-const modTypePriority = 25;
-
-/** The player-facing name of each mod type. */
-const modTypeNames: Readonly<Record<PackageKind, string>> = {
-  [PackageKind.Loader]: 'Enshwick Loader',
-  [PackageKind.Mod]: 'Enshwick Mod',
-};
-
-/** Whether a game is the one Enshwick runs in. */
-const isEnshrouded = (gameId: string): boolean => gameId === GameFolder.gameId;
 
 /** The installer sets each mod's type, so neither type claims other mods by their files. */
 const claimsNothing = (): VortexPromise<boolean> => VortexPromise.resolve(false);
@@ -38,9 +27,9 @@ const main = (context: types.IExtensionContext): boolean => {
     GameFolder.pathIn(context.api.getState(), game.id) as string;
 
   for (const kind of Object.values(PackageKind)) {
-    context.registerModType(kind, modTypePriority, isEnshrouded, gameFolder, claimsNothing, {
+    context.registerModType(kind, ModType.priority, GameFolder.isGame, gameFolder, claimsNothing, {
       mergeMods: true,
-      name: modTypeNames[kind],
+      name: ModType.nameOf(kind),
     });
   }
 

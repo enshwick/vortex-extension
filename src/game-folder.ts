@@ -28,6 +28,11 @@ export class GameFolder {
   /** The extension of a mod's or the loader's DLL. */
   public static readonly dllExtension = '.dll';
 
+  /** Whether `gameId` is the game Enshwick runs in. */
+  public static isGame(this: void, gameId: string): boolean {
+    return gameId === GameFolder.gameId;
+  }
+
   /**
    * Where Vortex found the folder of the game `gameId`, or `undefined` before it found one. The
    * typings of Vortex 2.10.1 import the discovery's type from a path only Vortex's own build
