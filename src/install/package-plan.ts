@@ -27,6 +27,7 @@ interface Entry {
  */
 export class PackagePlan {
   private static readonly separators = /[\\/]/u;
+  private static readonly rootKeySeparator = '/';
 
   private constructor(
     public readonly kind: PackageKind,
@@ -34,63 +35,85 @@ export class PackagePlan {
   ) {}
 
   /**
-   * The plan for an archive's files, or `undefined` when they hold no Enshwick package. The
-   * archive may hold `mods/` at its top or inside wrapping folders, or only a mod's folder named
-   * by its id. Files beside the package, such as `LICENSE`, go into its own folder in `mods/`,
-   * never into the game folder itself.
+   * The plan for an archive's files, or `undefined` when they hold no Enshwick package or any
+   * entry has an unsafe name. The archive may hold `mods/` at its top or inside wrapping
+   * folders, or only mod folders named by their ids. Files beside the package, such as
+   * `LICENSE`, go into its own folder in `mods/`, never into the game folder itself.
    */
   public static of(files: readonly string[]): PackagePlan | undefined {
     const entries = PackagePlan.entries(files);
-    const laidOut = entries.some((entry) =>
-      entry.names.some((_name, at) => PackagePlan.isModsAt(entry.names, at)),
-    );
 
-    return laidOut ? PackagePlan.withMods(entries) : PackagePlan.modFolderOnly(entries);
+    if (entries === undefined) {
+      return undefined;
+    }
+
+    for (const root of PackagePlan.modsRoots(entries)) {
+      const plan = PackagePlan.plan(PackagePlan.under(entries, root));
+
+      if (plan !== undefined) {
+        return plan;
+      }
+    }
+
+    return PackagePlan.modFolderOnly(entries);
   }
 
-  /** The archive's files split into names, leaving out folders and entries with an unsafe name. */
-  private static entries(files: readonly string[]): readonly Entry[] {
-    return files
+  /**
+   * The archive's files split into names, leaving out folders, or `undefined` when an entry has
+   * an unsafe name: installing the rest would leave a mod broken with no warning.
+   */
+  private static entries(files: readonly string[]): readonly Entry[] | undefined {
+    const entries = files
       .filter((source) => !PackagePlan.separators.test(source.at(-1) ?? ''))
-      .map((source) => ({ source, names: source.split(PackagePlan.separators) }))
-      .filter((entry) => entry.names.every((name) => PathSegment.accepts(name)));
+      .map((source) => ({ source, names: source.split(PackagePlan.separators) }));
+
+    return entries.every((entry) => entry.names.every((name) => PathSegment.accepts(name)))
+      ? entries
+      : undefined;
   }
 
-  /** The plan for an archive laid out like the game folder, at its top or in wrapping folders. */
-  private static withMods(entries: readonly Entry[]): PackagePlan | undefined {
-    const rooted = entries
-      .map((entry) => ({
-        entry,
-        depth: entry.names.findIndex((_name, at) => PackagePlan.isModsAt(entry.names, at)),
-      }))
-      .filter(({ depth }) => depth >= 0)
-      .toSorted((a, b) => a.depth - b.depth)[0];
+  /** The folders that hold a `mods/` with a file below it, shallowest first, each once. */
+  private static modsRoots(entries: readonly Entry[]): ReadonlyArray<readonly string[]> {
+    const roots = new Map<string, readonly string[]>();
 
-    if (rooted === undefined) {
-      return undefined;
+    for (const entry of entries) {
+      const depth = entry.names.findIndex((_name, at) => PackagePlan.isModsAt(entry.names, at));
+
+      if (depth >= 0) {
+        const root = entry.names.slice(0, depth);
+
+        roots.set(root.join(PackagePlan.rootKeySeparator).toLowerCase(), root);
+      }
     }
 
-    return PackagePlan.plan(PackagePlan.under(entries, rooted.entry.names.slice(0, rooted.depth)));
+    return [...roots.values()].toSorted((a, b) => a.length - b.length);
   }
 
-  /** The plan for an archive that holds one mod's folder, named by its id, and no `mods/`. */
+  /**
+   * The plan for an archive of mod folders named by their ids, with no `mods/` that holds a mod.
+   * A folder already inside `mods/` was judged with its layout and is not read again here.
+   */
   private static modFolderOnly(entries: readonly Entry[]): PackagePlan | undefined {
-    const anchor = entries
-      .filter(
-        (entry) =>
-          entry.names.length >= 2 &&
-          PackagePlan.isModFile(entry.names.at(-1)) &&
-          ModId.accepts(entry.names.at(-2)),
-      )
-      .toSorted((a, b) => a.names.length - b.names.length)[0];
+    const anchors = entries.filter(
+      (entry) =>
+        entry.names.length >= 2 &&
+        PackagePlan.isModFile(entry.names.at(-1)) &&
+        ModId.accepts(entry.names.at(-2)) &&
+        !PackagePlan.same(entry.names.at(-3), GameFolder.mods),
+    );
+    const depth = Math.min(...anchors.map((entry) => entry.names.length));
+    const shallowest = anchors.filter((entry) => entry.names.length === depth);
+    const root = shallowest[0]?.names.slice(0, -2);
 
-    if (anchor === undefined) {
+    if (root === undefined) {
       return undefined;
     }
 
-    const folder = anchor.names.at(-2);
-    const inMods = PackagePlan.under(entries, anchor.names.slice(0, -2)).map((entry) =>
-      entry.names.length > 1 && PackagePlan.same(entry.names[0], folder)
+    const folders = shallowest
+      .filter((entry) => root.every((name, at) => PackagePlan.same(entry.names[at], name)))
+      .map((entry) => entry.names.at(-2));
+    const inMods = PackagePlan.under(entries, root).map((entry) =>
+      entry.names.length > 1 && folders.some((folder) => PackagePlan.same(entry.names[0], folder))
         ? { source: entry.source, names: [GameFolder.mods, ...entry.names] }
         : entry,
     );
@@ -153,12 +176,15 @@ export class PackagePlan {
       : [PackagePlan.copy(entry.source, [GameFolder.mods, home, ...entry.names])];
   }
 
-  /** The folders of `mods/` that are mods: named by a mod id, with a mod file at their top. */
+  /**
+   * The folders of `mods/` that are mods: a DLL or a `pack.toml` at their top, whatever their
+   * name, as the loader reads them. The loader's own folder counts only beside the stub.
+   */
   private static modFolders(inMods: readonly Entry[]): readonly string[] {
     const folders = inMods
       .filter((entry) => entry.names.length === 3 && PackagePlan.isModFile(entry.names[2]))
       .map((entry) => entry.names[1] ?? '')
-      .filter((folder) => ModId.accepts(folder));
+      .filter((folder) => !PackagePlan.same(folder, GameFolder.loaderFolder));
 
     return [...new Set(folders)];
   }

@@ -93,11 +93,44 @@ describe('PackagePlan', () => {
     ]);
   });
 
-  it('leaves out folders of mods that are not named by a mod id or hold no mod file', () => {
+  it('takes every folder of mods with a mod file, as the loader does, whatever its name', () => {
     const plan = PackagePlan.of([
       join('mods', 'you.one', 'one.dll'),
-      join('mods', 'Other Loader', 'plugin.dll'),
+      join('mods', 'TradingPost', 'trading_post.dll'),
       join('mods', 'you.notes', 'notes.txt'),
+    ]);
+
+    expect(Object.values(destinations(plan))).toEqual([
+      join('mods', 'you.one', 'one.dll'),
+      join('mods', 'TradingPost', 'trading_post.dll'),
+    ]);
+  });
+
+  it('puts every mod folder of an archive without mods into mods, not only the first', () => {
+    const plan = PackagePlan.of([join('you.one', 'one.dll'), join('you.two', 'two.dll')]);
+
+    expect(Object.values(destinations(plan))).toEqual([
+      join('mods', 'you.one', 'one.dll'),
+      join('mods', 'you.two', 'two.dll'),
+    ]);
+  });
+
+  it('reads a Luau mod folder that holds a folder named mods as a mod folder', () => {
+    const plan = PackagePlan.of([
+      join('you.greeter', 'pack.toml'),
+      join('you.greeter', 'mods', 'data', 'x.luau'),
+    ]);
+
+    expect(Object.values(destinations(plan))).toEqual([
+      join('mods', 'you.greeter', 'pack.toml'),
+      join('mods', 'you.greeter', 'mods', 'data', 'x.luau'),
+    ]);
+  });
+
+  it('roots at the shallowest mods folder that holds a mod, not at the first mods folder', () => {
+    const plan = PackagePlan.of([
+      join('A', 'mods', 'a', 'readme.txt'),
+      join('B', 'mods', 'you.one', 'one.dll'),
     ]);
 
     expect(Object.values(destinations(plan))).toEqual([join('mods', 'you.one', 'one.dll')]);
@@ -114,13 +147,34 @@ describe('PackagePlan', () => {
     expect(PackagePlan.of([])).toBeUndefined();
   });
 
-  it('never copies an entry whose path climbs out of its folder', () => {
+  it('declines an archive with an entry whose path climbs out of its folder', () => {
+    expect(
+      PackagePlan.of([
+        join('mods', 'you.one', 'one.dll'),
+        ['mods', 'you.one', '..', '..', 'evil.dll'].join(sep),
+      ]),
+    ).toBeUndefined();
+  });
+
+  it('declines an archive with a name Windows refuses, rather than install part of it', () => {
+    const mod = join('mods', 'you.one', 'one.dll');
+
+    for (const name of ['a|b.luau', 'NUL', 'con.txt', 'Com1', 'lpt9.log', 'notes.', 'notes ']) {
+      expect({ name, plan: PackagePlan.of([mod, join('mods', 'you.one', name)]) }).toEqual({
+        name,
+        plan: undefined,
+      });
+    }
+  });
+
+  it('keeps names that only start like a device name', () => {
     const plan = PackagePlan.of([
       join('mods', 'you.one', 'one.dll'),
-      ['mods', 'you.one', '..', '..', 'evil.dll'].join(sep),
+      join('mods', 'you.one', 'console.luau'),
+      join('mods', 'you.one', 'com10.txt'),
     ]);
 
-    expect(Object.values(destinations(plan))).toEqual([join('mods', 'you.one', 'one.dll')]);
+    expect(Object.keys(destinations(plan))).toHaveLength(3);
   });
 
   it('copies each file at most once and only the stub outside mods', () => {

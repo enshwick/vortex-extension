@@ -11,9 +11,9 @@ Each entry names the pull request that made the change.
 - The extension installs the Enshwick archive through Vortex: `powrprof.dll`
   beside the game and the loader in `mods/enshwick/`, after the player
   confirms the DLL (#1).
-- It installs Enshwick mod archives into `mods/<mod id>/`, at the archive's
-  top, inside wrapping folders or as a mod folder alone, Luau mods included
-  (#1).
+- It installs Enshwick mod archives into their folders in `mods/`, laid out
+  at the archive's top, inside wrapping folders or as mod folders alone, Luau
+  mods included; an archive with a name Windows refuses is not installed (#1).
 - The mod types Enshwick Loader and Enshwick Mod deploy to the game folder,
   beside the Enshrouded game extension (#1).
 - A Vortex health check warns when Enshwick mods are on without the loader;
