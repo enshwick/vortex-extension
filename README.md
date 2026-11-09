@@ -29,8 +29,8 @@ The extension downloads nothing. It works on the archives you download yourself.
 
 ## Install the extension
 
-1. Download `enshwick-vortex-extension-<version>.zip` from the
-   [releases page](https://github.com/enshwick/vortex-extension/releases).
+1. Build `enshwick-vortex-extension-<version>.zip` from this repository, as
+   [Build from source](#build-from-source) shows.
 2. In Vortex, open **Extensions**.
 3. Drag the zip onto **Drop File(s)**.
 4. Restart Vortex.
@@ -38,7 +38,8 @@ The extension downloads nothing. It works on the archives you download yourself.
 ## Install Enshwick and its mods
 
 1. In Vortex, open **Games** and manage Enshrouded.
-2. Install `enshwick.zip` with **Mod Manager Download** on its page, or with
+2. Download `enshwick.zip` as the
+   [install guide](https://enshwick.com/guides/install/) shows. Install it with
    **Install From File** on the **Mods** page.
 3. Vortex asks you to confirm `powrprof.dll`. Select **Install**.
 4. Install each mod's archive the same way.
