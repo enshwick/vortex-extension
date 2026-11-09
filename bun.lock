@@ -6,6 +6,7 @@
       "name": "enshwick-vortex-extension",
       "dependencies": {
         "@horizon-republic/nominal-types": "3.1.0",
+        "smol-toml": "1.9.1",
       },
       "devDependencies": {
         "@nexusmods/vortex-api": "2.10.1",

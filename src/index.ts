@@ -39,8 +39,8 @@ const main = (context: types.IExtensionContext): boolean => {
     EnshwickInstaller.id,
     EnshwickInstaller.priority,
     (files, gameId) => Promise.resolve(EnshwickInstaller.supports(files, gameId)),
-    (files, _destination, _gameId, _progress, _choices, unattended) =>
-      installer.instructions(files, unattended),
+    (files, extracted, _gameId, _progress, _choices, unattended) =>
+      installer.instructions(files, extracted, unattended),
   );
   context.registerHealthCheck(LoaderCheck.healthCheck());
 

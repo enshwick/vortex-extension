@@ -33,6 +33,31 @@ export class GameFolder {
     return gameId === GameFolder.gameId;
   }
 
+  /** A name folded so that two names Windows takes for one file share a key. */
+  public static key(this: void, name: string | undefined): string | undefined {
+    return name?.toLowerCase();
+  }
+
+  /** Whether two names are the same, as Windows compares file names. */
+  public static same(name: string | undefined, other: string | undefined): boolean {
+    return name !== undefined && GameFolder.key(name) === GameFolder.key(other);
+  }
+
+  /** Whether a file is a DLL by its name. */
+  public static isDll(name: string | undefined): boolean {
+    return name?.toLowerCase().endsWith(GameFolder.dllExtension) === true;
+  }
+
+  /** Whether a file is a pack's manifest by its name. */
+  public static isPackManifest(name: string | undefined): boolean {
+    return GameFolder.same(name, GameFolder.packManifest);
+  }
+
+  /** Whether a file at the top of a mod's folder makes it a mod: a DLL or a pack manifest. */
+  public static isModFile(name: string | undefined): boolean {
+    return GameFolder.isDll(name) || GameFolder.isPackManifest(name);
+  }
+
   /**
    * Where Vortex found the folder of the game `gameId`, or `undefined` before it found one. The
    * typings of Vortex 2.10.1 import the discovery's type from a path only Vortex's own build

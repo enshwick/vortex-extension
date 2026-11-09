@@ -18,3 +18,11 @@ Each entry names the pull request that made the change.
   beside the Enshrouded game extension (#1).
 - A Vortex health check warns when Enshwick mods are on without the loader;
   its fix opens the install guide (#1).
+
+### Fixed
+
+- A pack installs under the id its `pack.toml` declares, in `mods/` or
+  outside it, so an archive that holds it in a versioned folder such as
+  `greeter-1.0/` no longer leaves it where the loader skips it. A manifest
+  without a valid id stops the install with an error that names the file, and
+  so do two mod folders that would install to one (#3).

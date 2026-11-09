@@ -1,7 +1,8 @@
-import { join } from 'node:path';
-
 import { GameFolder } from '../game-folder';
-import { ModId } from './mod-id';
+import { ArchiveEntries } from './archive-entries';
+import type { ArchiveEntry } from './archive-entries';
+import { GamePath } from './game-path';
+import type { ModId } from './mod-id';
 import { PackageKind } from './package-kind';
 import { PathSegment } from './path-segment';
 
@@ -9,14 +10,16 @@ import { PathSegment } from './path-segment';
 export interface PackageCopy {
   /** The entry as Vortex lists it in the archive. */
   readonly source: string;
-  /** The path in the game folder, with the platform's separator. */
-  readonly destination: string;
+  /** The path in the game folder. */
+  readonly destination: GamePath;
 }
 
-/** An archive entry and its names below the package's root, without a folder's trailing separator. */
-interface Entry {
-  readonly source: string;
-  readonly names: readonly string[];
+/** A pack folder by its manifest, and the id read from that manifest. */
+export interface DeclaredPack {
+  /** The `pack.toml` entry as Vortex lists it in the archive. */
+  readonly manifest: string;
+  /** The id the manifest declares, which names the pack's folder in `mods/`. */
+  readonly id: ModId;
 }
 
 /**
@@ -26,99 +29,152 @@ interface Entry {
  * gets no plan and goes to another installer.
  */
 export class PackagePlan {
-  private static readonly separators = /[\\/]/u;
-  private static readonly rootKeySeparator = '/';
-
   private constructor(
     public readonly kind: PackageKind,
     public readonly copies: readonly PackageCopy[],
   ) {}
 
   /**
-   * The plan for an archive's files, or `undefined` when they hold no Enshwick package or any
-   * entry has an unsafe name. The archive may hold `mods/` at its top or inside wrapping
-   * folders, or only mod folders named by their ids. Files beside the package, such as
-   * `LICENSE`, go into its own folder in `mods/`, never into the game folder itself.
+   * The plan for an archive's files, or `undefined` when they do not fit
+   * ({@link PackagePlan.fits}), `packs` lacks the id of a pack folder, or two mod folders would
+   * install to one. The archive may hold `mods/` at its top or inside wrapping folders, or only
+   * mod folders: a DLL's folder named by a mod id, and a pack's folder under any name. A pack's
+   * folder installs under the id in `packs`, the only name the loader runs it under; read the
+   * manifests {@link PackagePlan.manifests} lists to fill `packs`. Files beside the package,
+   * such as `LICENSE`, go into its own folder in `mods/`, never into the game folder itself.
    */
-  public static of(files: readonly string[]): PackagePlan | undefined {
-    const entries = PackagePlan.entries(files);
+  public static of(
+    files: readonly string[],
+    packs: readonly DeclaredPack[] = [],
+  ): PackagePlan | undefined {
+    const layout = PackagePlan.layout(files);
+    const named = layout === undefined ? undefined : PackagePlan.named(layout, packs);
 
-    if (entries === undefined) {
-      return undefined;
-    }
-
-    for (const root of PackagePlan.modsRoots(entries)) {
-      const plan = PackagePlan.plan(PackagePlan.under(entries, root));
-
-      if (plan !== undefined) {
-        return plan;
-      }
-    }
-
-    return PackagePlan.modFolderOnly(entries);
+    return named === undefined ? undefined : PackagePlan.plan(named);
   }
 
   /**
-   * The archive's files split into names, leaving out folders, or `undefined` when an entry has
-   * an unsafe name: installing the rest would leave a mod broken with no warning.
+   * Whether an archive's files hold an Enshwick package by their names alone, so that the ids of
+   * its packs can give it a plan. An archive with an unsafe name does not fit.
    */
-  private static entries(files: readonly string[]): readonly Entry[] | undefined {
-    const entries = files
-      .filter((source) => !PackagePlan.separators.test(source.at(-1) ?? ''))
-      .map((source) => ({ source, names: source.split(PackagePlan.separators) }));
-
-    return entries.every((entry) => entry.names.every((name) => PathSegment.accepts(name)))
-      ? entries
-      : undefined;
-  }
-
-  /** The folders that hold a `mods/` with a file below it, shallowest first, each once. */
-  private static modsRoots(entries: readonly Entry[]): ReadonlyArray<readonly string[]> {
-    const roots = new Map<string, readonly string[]>();
-
-    for (const entry of entries) {
-      const depth = entry.names.findIndex((_name, at) => PackagePlan.isModsAt(entry.names, at));
-
-      if (depth >= 0) {
-        const root = entry.names.slice(0, depth);
-
-        roots.set(root.join(PackagePlan.rootKeySeparator).toLowerCase(), root);
-      }
-    }
-
-    return [...roots.values()].toSorted((a, b) => a.length - b.length);
+  public static fits(files: readonly string[]): boolean {
+    return PackagePlan.layout(files) !== undefined;
   }
 
   /**
-   * The plan for an archive of mod folders named by their ids, with no `mods/` that holds a mod.
-   * A folder already inside `mods/` was judged with its layout and is not read again here.
+   * The `pack.toml` entries whose ids {@link PackagePlan.of} needs: one for each folder the
+   * loader reads as a pack, in `mods/` or outside it. An archive's file names cannot tell a
+   * pack's id.
    */
-  private static modFolderOnly(entries: readonly Entry[]): PackagePlan | undefined {
-    const anchors = entries.filter(
-      (entry) =>
-        entry.names.length >= 2 &&
-        PackagePlan.isModFile(entry.names.at(-1)) &&
-        ModId.accepts(entry.names.at(-2)) &&
-        !PackagePlan.same(entry.names.at(-3), GameFolder.mods),
-    );
-    const depth = Math.min(...anchors.map((entry) => entry.names.length));
-    const shallowest = anchors.filter((entry) => entry.names.length === depth);
-    const root = shallowest[0]?.names.slice(0, -2);
+  public static manifests(files: readonly string[]): readonly string[] {
+    return PackagePlan.packManifests(PackagePlan.layout(files) ?? []).map((entry) => entry.source);
+  }
+
+  /**
+   * The archive's files laid out like the game folder, each mod folder under the name the
+   * archive gives it, or `undefined` when they hold no Enshwick package.
+   */
+  private static layout(files: readonly string[]): readonly ArchiveEntry[] | undefined {
+    const entries = ArchiveEntries.of(files);
+
+    return entries === undefined
+      ? undefined
+      : (PackagePlan.inMods(entries) ?? PackagePlan.modFolderOnly(entries));
+  }
+
+  /** The layout below the shallowest `mods/` that holds a mod, or `undefined` with none. */
+  private static inMods(entries: readonly ArchiveEntry[]): readonly ArchiveEntry[] | undefined {
+    for (const root of ArchiveEntries.modsRoots(entries)) {
+      const layout = ArchiveEntries.under(entries, root);
+
+      if (PackagePlan.plan(layout) !== undefined) {
+        return layout;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * The layout of an archive of mod folders, with no `mods/` that holds a mod: every folder a
+   * mod file marks goes into `mods/`.
+   */
+  private static modFolderOnly(
+    entries: readonly ArchiveEntry[],
+  ): readonly ArchiveEntry[] | undefined {
+    const anchors = ArchiveEntries.anchors(entries);
+    const root = anchors[0]?.names.slice(0, -2);
 
     if (root === undefined) {
       return undefined;
     }
 
-    const folders = shallowest
-      .filter((entry) => root.every((name, at) => PackagePlan.same(entry.names[at], name)))
-      .map((entry) => entry.names.at(-2));
-    const inMods = PackagePlan.under(entries, root).map((entry) =>
-      entry.names.length > 1 && folders.some((folder) => PackagePlan.same(entry.names[0], folder))
+    const folders = new Set(anchors.map((anchor) => GameFolder.key(anchor.names.at(-2))));
+    const layout = ArchiveEntries.under(entries, root).map((entry) =>
+      entry.names.length > 1 && folders.has(GameFolder.key(entry.names[0]))
         ? { source: entry.source, names: [GameFolder.mods, ...entry.names] }
         : entry,
     );
 
-    return PackagePlan.plan(inMods);
+    return PackagePlan.plan(layout) === undefined ? undefined : layout;
+  }
+
+  /**
+   * The manifests of a layout's pack folders: `pack.toml` at the top of a folder of `mods/`,
+   * with a DLL beside it or not, as the loader reads packs. The loader's own folder is no pack.
+   */
+  private static packManifests(layout: readonly ArchiveEntry[]): readonly ArchiveEntry[] {
+    return layout.filter(
+      (entry) =>
+        entry.names.length === 3 &&
+        ArchiveEntries.isModsAt(entry.names, 0) &&
+        GameFolder.isPackManifest(entry.names[2]) &&
+        !GameFolder.same(entry.names[1], GameFolder.loaderFolder),
+    );
+  }
+
+  /**
+   * A layout with each pack folder under the id `packs` gives its manifest, or `undefined` when
+   * a pack has no id there, its id is a name Windows refuses, or two folders of `mods/` would
+   * become one.
+   */
+  private static named(
+    layout: readonly ArchiveEntry[],
+    packs: readonly DeclaredPack[],
+  ): readonly ArchiveEntry[] | undefined {
+    const declared = new Map(packs.map((pack) => [pack.manifest, pack.id]));
+    const ids = new Map<string | undefined, ModId>();
+
+    for (const manifest of PackagePlan.packManifests(layout)) {
+      const id = declared.get(manifest.source);
+
+      if (id === undefined || !PathSegment.accepts(id.value)) {
+        return undefined;
+      }
+
+      ids.set(GameFolder.key(manifest.names[1]), id);
+    }
+
+    const named = layout.map((entry) => {
+      const id = ArchiveEntries.isModsAt(entry.names, 0)
+        ? ids.get(GameFolder.key(entry.names[1]))
+        : undefined;
+
+      return id === undefined
+        ? entry
+        : { source: entry.source, names: [GameFolder.mods, id.value, ...entry.names.slice(2)] };
+    });
+
+    return PackagePlan.folders(named).size === PackagePlan.folders(layout).size ? named : undefined;
+  }
+
+  /** The folders of `mods/` in a layout, each once by its folded name. */
+  private static folders(layout: readonly ArchiveEntry[]): ReadonlySet<string | undefined> {
+    return new Set(
+      layout
+        .filter((entry) => ArchiveEntries.isModsAt(entry.names, 0))
+        .map((entry) => GameFolder.key(entry.names[1])),
+    );
   }
 
   /**
@@ -127,15 +183,15 @@ export class PackagePlan {
    * or a `pack.toml` at their top. A stub without the loader is another program's file, so such
    * an archive gets no plan.
    */
-  private static plan(entries: readonly Entry[]): PackagePlan | undefined {
+  private static plan(entries: readonly ArchiveEntry[]): PackagePlan | undefined {
     const top = entries.filter((entry) => entry.names.length === 1);
-    const inMods = entries.filter((entry) => PackagePlan.isModsAt(entry.names, 0));
-    const stub = top.find((entry) => PackagePlan.same(entry.names[0], GameFolder.stub));
+    const inMods = entries.filter((entry) => ArchiveEntries.isModsAt(entry.names, 0));
+    const stub = top.find((entry) => GameFolder.same(entry.names[0], GameFolder.stub));
     const loaderDll = inMods.find(
       (entry) =>
         entry.names.length === 3 &&
-        PackagePlan.same(entry.names[1], GameFolder.loaderFolder) &&
-        PackagePlan.same(entry.names[2], GameFolder.loaderDll),
+        GameFolder.same(entry.names[1], GameFolder.loaderFolder) &&
+        GameFolder.same(entry.names[2], GameFolder.loaderDll),
     );
     const mods = PackagePlan.modFolders(inMods);
 
@@ -153,7 +209,7 @@ export class PackagePlan {
 
     const copies = [
       ...inMods
-        .filter((entry) => folders.some((folder) => PackagePlan.same(entry.names[1], folder)))
+        .filter((entry) => folders.some((folder) => GameFolder.same(entry.names[1], folder)))
         .map((entry) => PackagePlan.copy(entry.source, [GameFolder.mods, ...entry.names.slice(1)])),
       ...top.flatMap((entry) => PackagePlan.topCopy(entry, stub, home)),
     ];
@@ -163,8 +219,8 @@ export class PackagePlan {
 
   /** Where a file at the package's top goes: the stub beside the executable, the rest home. */
   private static topCopy(
-    entry: Entry,
-    stub: Entry | undefined,
+    entry: ArchiveEntry,
+    stub: ArchiveEntry | undefined,
     home: string | undefined,
   ): readonly PackageCopy[] {
     if (entry === stub) {
@@ -180,45 +236,17 @@ export class PackagePlan {
    * The folders of `mods/` that are mods: a DLL or a `pack.toml` at their top, whatever their
    * name, as the loader reads them. The loader's own folder counts only beside the stub.
    */
-  private static modFolders(inMods: readonly Entry[]): readonly string[] {
+  private static modFolders(inMods: readonly ArchiveEntry[]): readonly string[] {
     const folders = inMods
-      .filter((entry) => entry.names.length === 3 && PackagePlan.isModFile(entry.names[2]))
+      .filter((entry) => entry.names.length === 3 && GameFolder.isModFile(entry.names[2]))
       .map((entry) => entry.names[1] ?? '')
-      .filter((folder) => !PackagePlan.same(folder, GameFolder.loaderFolder));
+      .filter((folder) => !GameFolder.same(folder, GameFolder.loaderFolder));
 
     return [...new Set(folders)];
   }
 
-  /** The entries inside `root`, with their names below it. */
-  private static under(entries: readonly Entry[], root: readonly string[]): readonly Entry[] {
-    return entries
-      .filter(
-        (entry) =>
-          entry.names.length > root.length &&
-          root.every((name, at) => PackagePlan.same(entry.names[at], name)),
-      )
-      .map((entry) => ({ source: entry.source, names: entry.names.slice(root.length) }));
-  }
-
-  /** Whether `names[at]` is `mods` with a folder and a file below it. */
-  private static isModsAt(names: readonly string[], at: number): boolean {
-    return PackagePlan.same(names[at], GameFolder.mods) && names.length >= at + 3;
-  }
-
-  /** Whether a file at the top of a mod's folder makes it a mod: a DLL or a Luau pack manifest. */
-  private static isModFile(name: string | undefined): boolean {
-    const lower = name?.toLowerCase() ?? '';
-
-    return lower.endsWith(GameFolder.dllExtension) || lower === GameFolder.packManifest;
-  }
-
-  /** Whether two names are the same, as Windows compares file names. */
-  private static same(name: string | undefined, other: string | undefined): boolean {
-    return name !== undefined && name.toLowerCase() === other?.toLowerCase();
-  }
-
   /** A copy of `source` to the game-folder path `names`. */
   private static copy(source: string, names: readonly string[]): PackageCopy {
-    return { source, destination: join(...names) };
+    return { source, destination: GamePath.of(names) };
   }
 }
