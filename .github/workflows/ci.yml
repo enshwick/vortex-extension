@@ -1,0 +1,32 @@
+# Checks and packages the extension on every ready pull request and on main.
+name: ci
+
+on:
+  # Every ready pull request, so the required check always reports; a draft
+  # runs nothing, and marking it ready runs the check.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'ARCHITECTURE.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'renovate.json'
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  # A run on main finishes, so every merge is checked and packaged.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Skipped here, a draft reports no `ci / check` at all: a skipped one
+  # counts as passed.
+  ci:
+    if: github.event.pull_request.draft != true
+    uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read

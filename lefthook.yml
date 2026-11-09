@@ -1,0 +1,52 @@
+# The hooks stay under ten seconds and type-check nothing; `bun run check`
+# runs the types, lint, format and tests, as CI does.
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{ts,json}'
+      run: bunx oxfmt --check --no-error-on-unmatched-pattern {staged_files}
+    lint:
+      glob: '*.ts'
+      run: bunx oxlint {staged_files}
+    markdown:
+      glob: '*.md'
+      run: bunx markdownlint-cli2@0.24.0 --no-globs {staged_files}
+    typos:
+      run: typos --force-exclude {staged_files}
+    # zizmor offline: its online audits need a GitHub token and the network.
+    workflows:
+      glob: '.github/**'
+      run: actionlint && zizmor --offline --quiet .
+
+# committed checks the header against committed.toml. Messages git writes
+# itself (merges, reverts, fixups) pass as they are. A subject starts in
+# lower case, and angle brackets would read as HTML in release notes.
+# No double quote in these hooks' patterns: lefthook on Windows hands a
+# command to sh inside double quotes, and one ends it early.
+commit-msg:
+  commands:
+    conventional:
+      run: >-
+        head -n1 {1} | grep -qE '^(Merge |Revert [^a-z]|fixup! |squash! |amend! )' ||
+        { committed --commit-file {1} &&
+        ! head -n1 {1} | grep -E ': [A-Z]|[<>]'; }
+
+pre-push:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{ts,json}'
+      run: bunx oxfmt --check --no-error-on-unmatched-pattern {push_files}
+    typos:
+      run: typos --force-exclude {push_files}
+    workflows:
+      glob: '.github/**'
+      run: actionlint && zizmor --offline --quiet .
+    commits:
+      run: >-
+        ! git rev-parse -q --verify origin/main > /dev/null ||
+        for commit in $(git rev-list --no-merges origin/main..HEAD); do
+        git log -1 --format=%s "$commit" | grep -qE '^(Revert [^a-z]|fixup! |squash! |amend! )' ||
+        { committed "$commit" &&
+        ! git log -1 --format=%s "$commit" | grep -E ': [A-Z]|[<>]'; } || exit 1; done
