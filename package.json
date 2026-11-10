@@ -2,7 +2,7 @@
   "name": "enshwick-vortex-extension",
   "version": "0.1.0",
   "private": true,
-  "description": "Vortex extension that installs Enshwick and its mods into Enshrouded",
+  "description": "Vortex extension that installs Enshwick and Enshwick mods into the game folder. Enshwick is the modding framework and API for Enshrouded.",
   "license": "MIT",
   "type": "module",
   "scripts": {

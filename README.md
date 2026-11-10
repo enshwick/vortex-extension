@@ -1,8 +1,14 @@
-# enshwick vortex-extension
+# Enshwick Vortex extension
 
 A [Vortex](https://www.nexusmods.com/about/vortex/) extension that installs
-[Enshwick](https://enshwick.com), the mod loader and modding framework for
-Enshrouded, and Enshwick mods into the game folder.
+[Enshwick](https://enshwick.com) and Enshwick mods into the game folder.
+Enshwick is the modding framework and API for Enshrouded.
+
+<!--
+The paragraph before this comment is this repository's description in
+src/data/repositories.json of enshwick/docs, the source of the project's words.
+Change it there first.
+-->
 
 ## What does the extension install?
 
