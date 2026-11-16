@@ -33,6 +33,34 @@ describe('PackagePlan', () => {
     });
   });
 
+  it('places both signatures of a signed loader archive where the loader reads them', () => {
+    const plan = PackagePlan.of([
+      'LICENSE',
+      'powrprof.dll',
+      'powrprof.dll.sig',
+      join('mods', 'enshwick', 'enshwick.dll'),
+      join('mods', 'enshwick', 'enshwick.dll.sig'),
+    ]);
+
+    expect(plan?.kind).toBe(PackageKind.Loader);
+    expect(destinations(plan)).toEqual({
+      LICENSE: join('mods', 'enshwick', 'LICENSE'),
+      'powrprof.dll': 'powrprof.dll',
+      'powrprof.dll.sig': 'powrprof.dll.sig',
+      [join('mods', 'enshwick', 'enshwick.dll')]: join('mods', 'enshwick', 'enshwick.dll'),
+      [join('mods', 'enshwick', 'enshwick.dll.sig')]: join('mods', 'enshwick', 'enshwick.dll.sig'),
+    });
+  });
+
+  it('keeps a stub signature without the stub in the mod folder, as any other top file', () => {
+    const plan = PackagePlan.of([join('mods', 'you.one', 'one.dll'), 'powrprof.dll.sig']);
+
+    expect(destinations(plan)).toEqual({
+      [join('mods', 'you.one', 'one.dll')]: join('mods', 'you.one', 'one.dll'),
+      'powrprof.dll.sig': join('mods', 'you.one', 'powrprof.dll.sig'),
+    });
+  });
+
   it('places a mod release archive in its own folder and keeps its licence there', () => {
     const plan = PackagePlan.of([
       join('mods', 'enshwick.game-rates', 'enshwick-game-rates.dll'),
@@ -181,8 +209,17 @@ describe('PackagePlan', () => {
     expect(Object.keys(destinations(plan))).toHaveLength(3);
   });
 
-  it('copies each file at most once and only the stub outside mods', () => {
-    const name = constantFrom('LICENSE', 'mods', 'you.one', 'enshwick', 'a.dll', 'pack.toml', 'x');
+  it('copies each file at most once and only the stub and its signature outside mods', () => {
+    const name = constantFrom(
+      'LICENSE',
+      'mods',
+      'you.one',
+      'enshwick',
+      'a.dll',
+      'pack.toml',
+      'x',
+      'powrprof.dll.sig',
+    );
     const path = array(name, { minLength: 1, maxLength: 4 }).map((names) => join(...names));
     const paths = uniqueArray(path, { maxLength: 12 });
     const withStub = paths.map((files) => [...files, 'powrprof.dll']);
@@ -200,7 +237,7 @@ describe('PackagePlan', () => {
         const elsewhere = copies
           .map((copy) => copy.destination.value)
           .filter((destination) => !destination.startsWith(`mods${sep}`))
-          .filter((destination) => destination !== 'powrprof.dll');
+          .filter((destination) => !['powrprof.dll', 'powrprof.dll.sig'].includes(destination));
 
         expect(sources.size).toBe(copies.length);
         expect(elsewhere).toEqual([]);

@@ -74,6 +74,23 @@ describe('EnshwickInstaller', () => {
     expect(asked()).toBe(1);
   });
 
+  it('copies the stub signature as a file of the loader mod, so its purge removes both', async () => {
+    const { api } = apiAnswering('Install');
+    const signed = [...loaderFiles, 'powrprof.dll.sig'];
+    const result = await new EnshwickInstaller(api).instructions(signed, nowhere, true);
+
+    expect(result.instructions).toContainEqual({
+      type: 'copy',
+      source: 'powrprof.dll',
+      destination: 'powrprof.dll',
+    });
+    expect(result.instructions).toContainEqual({
+      type: 'copy',
+      source: 'powrprof.dll.sig',
+      destination: 'powrprof.dll.sig',
+    });
+  });
+
   it('stops the loader install when the player cancels', async () => {
     const { api } = apiAnswering('Cancel');
 

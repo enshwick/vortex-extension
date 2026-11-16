@@ -13,6 +13,12 @@ export class GameFolder {
   /** The stub DLL beside the game's executable that starts the loader. */
   public static readonly stub = 'powrprof.dll';
 
+  /**
+   * The stub's signature, which the loader reads beside the stub to tell an official build from
+   * any other.
+   */
+  public static readonly stubSignature = 'powrprof.dll.sig';
+
   /** The folder beside the executable that holds the loader and one folder per mod. */
   public static readonly mods = 'mods';
 

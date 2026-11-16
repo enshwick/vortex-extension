@@ -187,6 +187,10 @@ export class PackagePlan {
     const top = entries.filter((entry) => entry.names.length === 1);
     const inMods = entries.filter((entry) => ArchiveEntries.isModsAt(entry.names, 0));
     const stub = top.find((entry) => GameFolder.same(entry.names[0], GameFolder.stub));
+    const signature =
+      stub === undefined
+        ? undefined
+        : top.find((entry) => GameFolder.same(entry.names[0], GameFolder.stubSignature));
     const loaderDll = inMods.find(
       (entry) =>
         entry.names.length === 3 &&
@@ -211,20 +215,28 @@ export class PackagePlan {
       ...inMods
         .filter((entry) => folders.some((folder) => GameFolder.same(entry.names[1], folder)))
         .map((entry) => PackagePlan.copy(entry.source, [GameFolder.mods, ...entry.names.slice(1)])),
-      ...top.flatMap((entry) => PackagePlan.topCopy(entry, stub, home)),
+      ...top.flatMap((entry) => PackagePlan.topCopy(entry, stub, signature, home)),
     ];
 
     return new PackagePlan(loader === undefined ? PackageKind.Mod : PackageKind.Loader, copies);
   }
 
-  /** Where a file at the package's top goes: the stub beside the executable, the rest home. */
+  /**
+   * Where a file at the package's top goes: the stub and its signature beside the executable, where
+   * the loader reads them, the rest home.
+   */
   private static topCopy(
     entry: ArchiveEntry,
     stub: ArchiveEntry | undefined,
+    signature: ArchiveEntry | undefined,
     home: string | undefined,
   ): readonly PackageCopy[] {
     if (entry === stub) {
       return [PackagePlan.copy(entry.source, [GameFolder.stub])];
+    }
+
+    if (entry === signature) {
+      return [PackagePlan.copy(entry.source, [GameFolder.stubSignature])];
     }
 
     return home === undefined

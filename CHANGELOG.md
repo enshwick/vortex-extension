@@ -26,3 +26,6 @@ Each entry names the pull request that made the change.
   `greeter-1.0/` no longer leaves it where the loader skips it. A manifest
   without a valid id stops the install with an error that names the file, and
   so do two mod folders that would install to one (#3).
+- The signature of `powrprof.dll` installs beside it in the game folder, where
+  the loader reads it, so an official build installed through Vortex reads as
+  official instead of unofficial (#5).
