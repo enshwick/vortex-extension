@@ -15,6 +15,52 @@ const destinations = (plan: PackagePlan | undefined): Record<string, string> =>
 
 const pack = (manifest: string, id: string): DeclaredPack => ({ manifest, id: new ModId(id) });
 
+const generatedName = constantFrom(
+  'LICENSE',
+  'mods',
+  'you.one',
+  'enshwick',
+  'a.dll',
+  'pack.toml',
+  'x',
+  'powrprof.dll.sig',
+);
+
+const generatedPaths = uniqueArray(
+  array(generatedName, { minLength: 1, maxLength: 4 }).map((names) => join(...names)),
+  { maxLength: 12 },
+);
+
+const withStub = (files: readonly string[]): readonly string[] => [...files, 'powrprof.dll'];
+
+const withLoader = (files: readonly string[]): readonly string[] => [
+  ...files,
+  join('mods', 'enshwick', 'enshwick.dll'),
+];
+
+/** The plan for generated files, each pack folder given a generated id. */
+const planOf = (files: readonly string[]): PackagePlan | undefined =>
+  PackagePlan.of(
+    files,
+    PackagePlan.manifests(files).map((manifest, at) => pack(manifest, `gen.pack-${at}`)),
+  );
+
+/**
+ * The destinations of an archive's plan outside `mods/` and not in `root`, after checking that the
+ * plan exists exactly when the files fit and copies each file at most once.
+ */
+const outsideMods = (files: readonly string[], root: readonly string[]): readonly string[] => {
+  const copies = copiesOf(planOf(files));
+
+  expect(copies.length > 0).toBe(PackagePlan.fits(files));
+  expect(new Set(copies.map((copy) => copy.source)).size).toBe(copies.length);
+
+  return copies
+    .map((copy) => copy.destination.value)
+    .filter((destination) => !destination.startsWith(`mods${sep}`))
+    .filter((destination) => !root.includes(destination));
+};
+
 describe('PackagePlan', () => {
   it('places the loader release archive as an extraction into the game folder would', () => {
     const plan = PackagePlan.of([
@@ -209,39 +255,29 @@ describe('PackagePlan', () => {
     expect(Object.keys(destinations(plan))).toHaveLength(3);
   });
 
-  it('copies each file at most once and only the stub and its signature outside mods', () => {
-    const name = constantFrom(
-      'LICENSE',
-      'mods',
-      'you.one',
-      'enshwick',
-      'a.dll',
-      'pack.toml',
-      'x',
-      'powrprof.dll.sig',
-    );
-    const path = array(name, { minLength: 1, maxLength: 4 }).map((names) => join(...names));
-    const paths = uniqueArray(path, { maxLength: 12 });
-    const withStub = paths.map((files) => [...files, 'powrprof.dll']);
-
+  it('copies each file of a mod archive at most once and nothing outside mods', () => {
     assert(
-      property(oneof(paths, withStub), (files) => {
-        const packs = PackagePlan.manifests(files).map((manifest, at) =>
-          pack(manifest, `gen.pack-${at}`),
-        );
-        const plan = PackagePlan.of(files, packs);
-        const copies = copiesOf(plan);
+      property(
+        oneof(
+          generatedPaths,
+          generatedPaths.map((files) => withStub(files)),
+        ),
+        (files) => {
+          expect(outsideMods(files, [])).toEqual([]);
+        },
+      ),
+    );
+  });
 
-        expect(copies.length > 0).toBe(PackagePlan.fits(files));
-        const sources = new Set(copies.map((copy) => copy.source));
-        const elsewhere = copies
-          .map((copy) => copy.destination.value)
-          .filter((destination) => !destination.startsWith(`mods${sep}`))
-          .filter((destination) => !['powrprof.dll', 'powrprof.dll.sig'].includes(destination));
-
-        expect(sources.size).toBe(copies.length);
-        expect(elsewhere).toEqual([]);
-      }),
+  it('copies each file of a loader archive at most once and only its root files outside mods', () => {
+    assert(
+      property(
+        generatedPaths.map((files) => withLoader(withStub(files))),
+        (files) => {
+          expect(planOf(files)?.kind).toBe(PackageKind.Loader);
+          expect(outsideMods(files, ['powrprof.dll', 'powrprof.dll.sig'])).toEqual([]);
+        },
+      ),
     );
   });
 });

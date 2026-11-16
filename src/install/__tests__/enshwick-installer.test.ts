@@ -79,6 +79,7 @@ describe('EnshwickInstaller', () => {
     const signed = [...loaderFiles, 'powrprof.dll.sig'];
     const result = await new EnshwickInstaller(api).instructions(signed, nowhere, true);
 
+    expect(result.instructions[0]).toEqual({ type: 'setmodtype', value: PackageKind.Loader });
     expect(result.instructions).toContainEqual({
       type: 'copy',
       source: 'powrprof.dll',

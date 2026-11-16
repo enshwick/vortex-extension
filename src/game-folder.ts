@@ -13,11 +13,17 @@ export class GameFolder {
   /** The stub DLL beside the game's executable that starts the loader. */
   public static readonly stub = 'powrprof.dll';
 
+  /** The extension the loader reads for the signature beside a file of its own. */
+  public static readonly signatureExtension = '.sig';
+
   /**
    * The stub's signature, which the loader reads beside the stub to tell an official build from
    * any other.
    */
-  public static readonly stubSignature = 'powrprof.dll.sig';
+  public static readonly stubSignature = `${GameFolder.stub}${GameFolder.signatureExtension}`;
+
+  /** The loader's files that go beside the executable rather than into {@link GameFolder.mods}. */
+  public static readonly rootFiles: readonly string[] = [GameFolder.stub, GameFolder.stubSignature];
 
   /** The folder beside the executable that holds the loader and one folder per mod. */
   public static readonly mods = 'mods';
@@ -47,6 +53,11 @@ export class GameFolder {
   /** Whether two names are the same, as Windows compares file names. */
   public static same(name: string | undefined, other: string | undefined): boolean {
     return name !== undefined && GameFolder.key(name) === GameFolder.key(other);
+  }
+
+  /** The name a file of {@link GameFolder.rootFiles} keeps beside the executable, if it is one. */
+  public static rootName(name: string | undefined): string | undefined {
+    return GameFolder.rootFiles.find((root) => GameFolder.same(name, root));
   }
 
   /** Whether a file is a DLL by its name. */

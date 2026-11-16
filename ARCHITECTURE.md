@@ -31,8 +31,10 @@ extension adds to it under the game id `enshrouded`.
 - An archive with an unsafe name (`..`, a drive letter, a
   character Windows refuses, a device name such as `NUL`, a name ending in a
   space or a period) gets no plan, so no part of it is installed.
-- Nothing but `powrprof.dll` goes to the top of the game folder; every other
-  file goes into a folder of `mods/`.
+- Nothing but the loader's `powrprof.dll` and its signature `powrprof.dll.sig`
+  goes to the top of the game folder (`GameFolder.rootFiles`), since the loader
+  reads the signature beside the stub; every other file goes into a folder of
+  `mods/`.
 - Vortex supplies `@nexusmods/vortex-api` at runtime. The build leaves it out of
   `index.js`, and the code takes only values Vortex exports: `VortexError`, its
   `Promise`, the health check enums, `selectors.activeProfile` and `util.opn`. Tests replace it with
