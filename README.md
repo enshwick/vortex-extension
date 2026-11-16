@@ -13,11 +13,12 @@ Change it there first.
 ## What does the extension install?
 
 - It installs the Enshwick archive as an extraction by hand would:
-  `powrprof.dll` beside the game, and the loader in `mods/enshwick/`.
+  `powrprof.dll` and its signature `powrprof.dll.sig` beside the game, and the
+  loader in `mods/enshwick/`.
 - It installs each mod archive into `mods/<mod id>/`. Rust mods and Luau mods
   work the same way.
 - It keeps files such as `LICENSE` in the package's own folder in `mods/`. The
-  game folder itself gets only `powrprof.dll`.
+  game folder itself gets only `powrprof.dll` and `powrprof.dll.sig`.
 - It asks you to confirm before it installs `powrprof.dll`, since that file runs
   with the game.
 - It warns when Enshwick mods are on and Enshwick is not. The fix opens the

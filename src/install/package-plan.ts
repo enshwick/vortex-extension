@@ -24,8 +24,8 @@ export interface DeclaredPack {
 
 /**
  * Where the files of an Enshwick archive go, so that Vortex deploys them as an extraction into
- * the game folder would: the stub beside the executable and every mod in its own folder of
- * `mods/`. Use {@link PackagePlan.of} on the files Vortex lists; an archive of any other shape
+ * the game folder would: the stub and its signature beside the executable and every mod in its
+ * own folder of `mods/`. Use {@link PackagePlan.of} on the files Vortex lists; an archive of any other shape
  * gets no plan and goes to another installer.
  */
 export class PackagePlan {
@@ -41,7 +41,8 @@ export class PackagePlan {
    * mod folders: a DLL's folder named by a mod id, and a pack's folder under any name. A pack's
    * folder installs under the id in `packs`, the only name the loader runs it under; read the
    * manifests {@link PackagePlan.manifests} lists to fill `packs`. Files beside the package,
-   * such as `LICENSE`, go into its own folder in `mods/`, never into the game folder itself.
+   * such as `LICENSE`, go into its own folder in `mods/`; only the loader's root files
+   * ({@link GameFolder.rootFiles}) go into the game folder itself.
    */
   public static of(
     files: readonly string[],
@@ -211,20 +212,26 @@ export class PackagePlan {
       ...inMods
         .filter((entry) => folders.some((folder) => GameFolder.same(entry.names[1], folder)))
         .map((entry) => PackagePlan.copy(entry.source, [GameFolder.mods, ...entry.names.slice(1)])),
-      ...top.flatMap((entry) => PackagePlan.topCopy(entry, stub, home)),
+      ...top.flatMap((entry) => PackagePlan.topCopy(entry, loader !== undefined, home)),
     ];
 
     return new PackagePlan(loader === undefined ? PackageKind.Mod : PackageKind.Loader, copies);
   }
 
-  /** Where a file at the package's top goes: the stub beside the executable, the rest home. */
+  /**
+   * Where a file at the package's top goes: in the loader's package, its root files
+   * ({@link GameFolder.rootFiles}) beside the executable, where the loader reads them; the rest
+   * home. A mod's package keeps every top file home, so it never replaces the loader's.
+   */
   private static topCopy(
     entry: ArchiveEntry,
-    stub: ArchiveEntry | undefined,
+    isLoader: boolean,
     home: string | undefined,
   ): readonly PackageCopy[] {
-    if (entry === stub) {
-      return [PackagePlan.copy(entry.source, [GameFolder.stub])];
+    const root = isLoader ? GameFolder.rootName(entry.names[0]) : undefined;
+
+    if (root !== undefined) {
+      return [PackagePlan.copy(entry.source, [root])];
     }
 
     return home === undefined
